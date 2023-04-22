@@ -1,896 +1,694 @@
-#include<iostream>
-#include<fstream>
-#include<string>
-#include<cctype>
-#include<vector>
-#include<stack>
-#include<stdlib.h>
-
-#define K_DIGIT       3      //ÕûÊı
-#define K_CHAR        4      //×Ö·û
-#define K_STRING      5      //×Ö·û´®
-#define K_TYPE        6      //Êı¾İÀàĞÍ
-#define K_KEYWORDS    7      //¹Ø¼ü×Ö
-#define K_OPERATOR    8      //ÔËËã·û
-#define K_IDENTIFIER  9      //±êÊ¶·û
-#define K_BRACKET     10     //À¨ºÅ
-
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <cctype>
+#include <vector>
+#include <stack>
+#include <stdlib.h>
 using namespace std;
 
-//´æ´¢·Ö´ÊÀàĞÍ
-typedef struct IDwords
-{
-	int       id;     //±êÖ¾
-	string    word;   //µ¥´Ê
-}IDwords;
+#define K_DIGIT 3	       // æ•´æ•°
+#define K_CHAR 4	   // å­—ç¬¦
+#define K_STRING 5	   // å­—ç¬¦ä¸²
+#define K_TYPE 6	   // æ•°æ®ç±»å‹
+#define K_KEYWORDS 7   // å…³é”®å­—
+#define K_OPERATOR 8   // è¿ç®—ç¬¦
+#define K_IDENTIFIER 9 // æ ‡è¯†ç¬¦
+#define K_BRACKET 10   // æ‹¬å·
 
-typedef struct Variable
-{
-	string   var;    //±äÁ¿
-	string   value;  //³õÊ¼»¯Öµ
-}Variable;
+// å­˜å‚¨åˆ†è¯ç±»å‹
+struct IDwords{
+    int id;		 // æ ‡å¿—
+    string word; // å•è¯
+};
 
-//Ä¿±ê´úÂëÔªËØ
-typedef struct Target
-{
-	string    dsf;    //½á¹û
-	string    op;     //²Ù×÷
-	string    dst;    //Ä¿µÄ²Ù×÷Êı
-	string    dsc;    //Ô´²Ù×÷Êı
-	string    mark;   //±êÖ¾
-	string    step;   //Ìø×ªÎ»ÖÃ
-}Target;
+struct Variable{
+    string var;	  // å˜é‡
+    string value; // åˆå§‹åŒ–å€¼
+};
 
-//±£´æÉùÃ÷±äÁ¿
-vector<Variable>      var_table;
-//±£´æÄ¿±ê´úÂë
-vector<Target>        target_code;
+// ç›®æ ‡ä»£ç å…ƒç´ 
+struct Target{
+    string dsf;	 // ç»“æœ
+    string op;	 // æ“ä½œ
+    string dst;	 // ç›®çš„æ“ä½œæ•°
+    string dsc;	 // æºæ“ä½œæ•°
+    string mark; // æ ‡å¿—
+    string step; // è·³è½¬ä½ç½®
+};
 
-
-char                  lab='A'; //¼ÇÂ¼Ìø×ª±êÖ¾
-char                  vab='A'; //¼ÇÂ¼ÖĞ¼ä±äÁ¿
-
-//Éú³ÉµÄ»ã±àÎÄ¼şÃû³Æ
-string  asmfile(string source)
-{
-	if(source.size()==0)
-	{
-		cout<<"Ô´ÎÄ¼şÃû²»ÄÜÎª¿Õ"<<endl;
-		exit(-1);
-	}
-	string temp="";
-	int i,j;
-	j = source.size();
-    for(i = j-1;i>=0;i--)
-	{
-//		if(source[i] == '\\' || source[i]== '/')
-//			break;
-		if(source[i] == '.')
-		{
-			j = i;
-			break;
-		}
-	}
-	temp = source.substr(0,j) + ".asm";
-	return temp;
+// å­—ç¬¦è½¬å­—ç¬¦ä¸²
+string char_to_str(char c){
+    char s[2] = " ";
+    s[0] = c;
+    return string(s);
 }
 
-//ÔËËã·ûÓÅÏÈ¼¶
-int level(string s)
-{
-	if(s=="#")
-		return 1;
-	else if(s=="=")
-		return 2;
-	else if(s=="+" || s=="-")
-		return 3;
-	else if(s=="*" || s=="/")
-		return 4;
-	else
-		return -1;
+// æ˜¯å¦ä¸ºè¿ç®—æ“ä½œç¬¦
+int is_operator(char c){
+    if(c == '+' || c == '-' || c == '*' || c == '/' || c == ',' || c == '=' || c == '>' || c == '<') return 1;
+    else return 0;
 }
 
-
-//±£´æµ½Ä¿±ê´úÂë
-void add_target_code(string dsf,string op,string dst,string dsc,string mark,string step)
-{
-	Target  tmp;
-	tmp.dsf = dsf;
-	tmp.op = op;
-	tmp.dst = dst;
-	tmp.dsc = dsc;
-	tmp.mark = mark;
-	tmp.step = step;
-	target_code.push_back(tmp);
+// æ˜¯å¦ä¸ºå¤§æ‹¬å·ã€å°æ‹¬å·ã€åˆ†å·
+int is_bracket(char c){
+    if(c == '{' || c == '}' || c == '(' || c == ')' || c == ';') return 1;
+    else return 0;
 }
 
-//×Ö·û×ª×Ö·û´®
-string char_to_str(char c)
-{
-	char s[2] = " ";
-	s[0] = c;
-	return string(s);
+// æ˜¯å¦ä¸ºç©ºç™½
+int is_blank(char c){
+    if(c == '\n' || c == '\t' || c == ' ' || c == '\r') return 1;
+    else return 0;
 }
 
-//ÊÇ·ñÎªÔËËã²Ù×÷·û
-int is_operator(char c)
-{
-	if(c == '+' || c=='-'||c=='*'||c=='/'||c==','||c=='=' ||c=='>' || c=='<')
-		return 1;
-	else
-		return 0;
+// åˆ¤æ–­å•è¯ç±»å‹
+int word_token(string s){
+    int size = s.size();
+    // å­—ç¬¦æ•°æ®
+    if (s[0] == '\''){
+        if(s[size - 1] == '\'') return K_CHAR;
+        else{
+            cout << "é”™è¯¯çš„å­—ç¬¦æ•°æ®ï¼š" << s << endl;
+            exit(-1);
+        }
+    }
+    // å­—ç¬¦ä¸²æ•°æ®
+    else if(s[0] == '\"'){
+        if(s[size - 1] == '\"') return K_STRING;
+        else{
+            cout << "é”™è¯¯çš„å­—ç¬¦ä¸²æ•°æ®ï¼š" << s << endl;
+            exit(-1);
+        }
+    }
+    // æ•´æ•°
+    else if(isdigit(s[0])){
+        for(int i = 1; i < size; i++){
+            if(!isdigit(s[i])){
+                cout << "ä¸åˆæ³•çš„æ ‡è¯†ç¬¦ï¼š" << s << endl;
+                exit(-1);
+            }
+        }
+        return K_DIGIT;
+    }
+    else{
+        for(int i = 0; i < size; i++){
+            if(!isalnum(s[i]) && s[i] != '_'){
+                cout << "ä¸åˆæ³•çš„æ ‡è¯†ç¬¦ï¼š" << s << endl;
+                exit(-1);
+            }
+        }
+        // æ•°æ®ç±»å‹
+        if(s == "int" || s == "char") return K_TYPE;
+        // å…³é”®å­—
+        else if(s == "if" || s == "else" || s == "printf" || s == "main") return K_KEYWORDS;
+        // è‡ªå®šä¹‰æ ‡è¯†ç¬¦
+        else return K_IDENTIFIER;
+    }
 }
 
-//ÊÇ·ñÎª´óÀ¨ºÅ¡¢Ğ¡À¨ºÅ¡¢·ÖºÅ
-int is_bracket(char c)
-{
-	if(c=='{' || c=='}' || c=='(' || c==')' ||c==';')
-		return 1;
-	else
-		return 0;
+// ä¿å­˜å£°æ˜å˜é‡
+vector<Variable> var_table;
+// ä¿å­˜ç›®æ ‡ä»£ç 
+vector<Target> target_code;
+
+char lab = 'A'; // è®°å½•è·³è½¬æ ‡å¿—
+char vab = 'A'; // è®°å½•ä¸­é—´å˜é‡
+
+// ç”Ÿæˆçš„æ±‡ç¼–æ–‡ä»¶åç§°
+string asmfile(string source){
+    if(source.size() == 0){
+        cout << "æºæ–‡ä»¶åä¸èƒ½ä¸ºç©º" << "\n";
+        exit(-1);
+    }
+    string temp = "";
+    int i, j;
+    j = source.size();
+    for (i = j - 1; i >= 0; i--){
+        if(source[i] == '.'){
+            j = i;
+            break;
+        }
+    }
+    temp = source.substr(0, j) + ".asm";
+    return temp;
 }
 
-//ÊÇ·ñÎª¿Õ°×
-int is_blank(char c)
-{
-	if(c=='\n' || c=='\t' || c==' ' || c=='\r')
-		return 1;
-	else
-		return 0;
+// è¿ç®—å¤ä¼˜å…ˆçº§
+int level(string s){
+    if(s == "#") return 1;
+    else if(s == "=") return 2;
+    else if(s == "+" || s == "-") return 3;
+    else if(s == "*" || s == "/") return 4;
+    else return -1;
 }
 
-//ÅĞ¶Ïµ¥´ÊÀàĞÍ
-int word_token(string s)
-{
-	int    size = s.size();
-	//×Ö·ûÊı¾İ
-	if(s[0]=='\'')
-	{
-		if(s[size-1] == '\'')
-			return K_CHAR;
-		else
-		{
-			cout<<"´íÎóµÄ×Ö·û´®Êı¾İ£º"<<s<<endl;
-			exit(-1);
-		}
-	}
-	//×Ö·û´®Êı¾İ
-	else if(s[0]=='\"')
-	{
-		if(s[size-1]=='\"')
-			return K_STRING;
-		else
-		{
-            cout<<"´íÎóµÄ×Ö·û´®Êı¾İ£º"<<s<<endl;
-			exit(-1);
-		}
-	}
-	//ÕûÊı
-	else if(isdigit(s[0]))
-	{
-		for(int i=1;i<size;i++)
-		{
-			if(!isdigit(s[i]))
-			{
-				cout<<"²»ºÏ·¨µÄ±êÊ¶·û£º"<<s<<endl;
-				exit(-1);
-			}
-		}
-		return K_DIGIT;
-	}
-	else
-	{
-		for(int i=0;i<size;i++)
-		{
-			if(!isalnum(s[i]) && s[i]!='_')
-			{
-                cout<<"²»ºÏ·¨µÄ±êÊ¶·û£º"<<s<<endl;
-				exit(-1);
-			}
-		}
-		//Êı¾İÀàĞÍ
-		if(s=="int" || s=="char")
-			return K_TYPE;
-		//¹Ø¼ü×Ö
-		else if(s=="if" || s=="else" || s=="printf" || s=="main")
-			return K_KEYWORDS;
-		//×Ô¶¨Òå±êÊ¶·û
-		else
-			return K_IDENTIFIER;
-	}
+// ä¿å­˜åˆ°ç›®æ ‡ä»£ç 
+void add_target_code(string dsf, string op, string dst, string dsc, string mark, string step){
+    Target tmp;
+    tmp.dsf = dsf;
+    tmp.op = op;
+    tmp.dst = dst;
+    tmp.dsc = dsc;
+    tmp.mark = mark;
+    tmp.step = step;
+    target_code.push_back(tmp);
 }
 
-//Ìí¼Ó·Ö´Ê½á¹û
-void add_keywords(vector<IDwords> &v,int id,string word)
-{
-	IDwords    temp;
-	temp.id = id;
-	temp.word = word;
-	v.push_back(temp);
+// æ·»åŠ åˆ†è¯ç»“æœ
+void add_keywords(vector<IDwords> &v, int id, string word){
+    IDwords temp;
+    temp.id = id;
+    temp.word = word;
+    v.push_back(temp);
 }
 
-//´Ê·¨·ÖÎö
-void lexical_analysis(string source,vector<IDwords> &AnalysisResults)
-{
-	char       ch;
-	ifstream   rfile(source.c_str());
-	if(!rfile.is_open())
-	{
-		cout<<"ÎŞ·¨´ò¿ªÔ´ÎÄ¼ş"<<endl;
-		exit(-1);
-	}
+// è¯æ³•åˆ†æ
+void lexical_analysis(string source, vector<IDwords> &AnalysisResults){
+    char ch;
+    ifstream rfile(source.c_str());
+    if (!rfile.is_open()){
+        cout << "æ— æ³•æ‰“å¼€æºæ–‡ä»¶" << endl;
+        exit(-1);
+    }
 
-	rfile>>noskipws;   //²»¹ıÂË¿Õ¸ñ
-	while(rfile>>ch)
-	{
-		int         state=0;        //ÅĞ¶Ï×´Ì¬
-		string      temp("");       //×Ö·û´®»º´æ
-        char        try_ch;         //Ì½²âÇ°ÃæµÄ×Ö·û
-		
-		switch(state)
-		{
-		case 0:
-			if(ch=='/') //¿ÉÄÜÊÇ×¢ÊÍ
-			{
-				rfile>>try_ch;
-				if(try_ch=='/')
-				{
-					while(rfile>>try_ch)
-					{
-						if(try_ch=='\n')
-							break;   //ÕâÊÇÒ»ĞĞ×¢ÊÍ
-					}
-					break;
-				}
-				else if(try_ch=='*')
-				{
-					while(rfile>>try_ch)
-					{
-						if(try_ch=='*')
-						{
-							rfile>>try_ch;
-							if(try_ch=='/')
-								break; //ÕâÊÇ¶àĞĞ×¢ÊÍ
-						}
-					}
-					break;
-				}
-				else
-				{
-					add_keywords(AnalysisResults,K_OPERATOR,char_to_str(ch));
-					ch = try_ch;  //¼ÌĞø×´Ì¬1
-				}
-			}
-		case 1:
-		    if(is_operator(ch)) //ÅĞ¶Ï²Ù×÷·û
-			{
-				add_keywords(AnalysisResults,K_OPERATOR,char_to_str(ch));
-				break;
-			}
-		case 2:
-		    if(is_bracket(ch)) //´óÀ¨ºÅ¡¢Ğ¡À¨ºÅ
-			{
-				add_keywords(AnalysisResults,K_BRACKET,char_to_str(ch));
-				break;
-			}
-		case 3:
-			if(is_blank(ch)) //¿Õ°×·û
-				break;
-		case 4:
-			if(ch=='#') //Ìø¹ıÔ¤´¦Àí
-			{
-				while(rfile>>ch)
-				{
-					if(is_blank(ch))
-					{
-						break;
-					}
-				}
-				break;
-			}
-		default://ÅĞ¶Ïµ¥´ÊÀàĞÍ
-			temp = temp + char_to_str(ch);
-			while(rfile>>try_ch)
-			{
-				if(try_ch == '\"')
-				{
-					temp = temp + char_to_str(try_ch);
-					if(ch == '\"')
-					{
-						add_keywords(AnalysisResults,word_token(temp),temp);
-						break;
-					}
-					else
-					{
-						cout<<"²»ºÏ·¨µÄ±êÊ¶·û£º"+temp<<endl;
-						exit(-1);
-					}
-				}
-				else if(is_blank(try_ch) )
-				{
-					if(ch != '\'' && ch != '\"')
-					{
-						add_keywords(AnalysisResults,word_token(temp),temp);
-						break;
-					}
-					else
-						temp = temp + char_to_str(try_ch);
-				}
-				else if(is_operator(try_ch) )
-				{
-					if(ch !='\'' && ch != '\"' )
-					{
-						add_keywords(AnalysisResults,word_token(temp),temp);
-					    add_keywords(AnalysisResults,K_OPERATOR,char_to_str(try_ch));
-						break;
-					}
-					else
-						temp = temp + char_to_str(try_ch);
-				}
-				else if(is_bracket(try_ch))
-				{
-					add_keywords(AnalysisResults,word_token(temp),temp);
-					add_keywords(AnalysisResults,K_BRACKET,char_to_str(try_ch));
-					break;
-				}
-				else
-					temp = temp + char_to_str(try_ch);
-			}
-		}
-	}
-	rfile.close();
+    rfile >> noskipws; // ä¸è¿‡æ»¤ç©ºæ ¼
+    while(rfile >> ch){
+        int state = 0;	 // åˆ¤æ–­çŠ¶æ€
+        string temp(""); // å­—ç¬¦ä¸²ç¼“å­˜
+        char try_ch;	 // æ¢æµ‹å‰é¢çš„å­—ç¬¦
+
+        switch(state){
+        case 0:
+            if(ch == '/'){// å¯èƒ½æ˜¯æ³¨é‡Š
+                rfile >> try_ch;
+                if(try_ch == '/'){
+                    while(rfile >> try_ch){
+                        if(try_ch == '\n') break; // è¿™æ˜¯ä¸€è¡Œæ³¨é‡Š
+                    }
+                    break;
+                }
+                else if(try_ch == '*'){
+                    while(rfile >> try_ch){
+                        if(try_ch == '*'){
+                            rfile >> try_ch;
+                            if(try_ch == '/') break; // è¿™æ˜¯å¤šè¡Œæ³¨é‡Š
+                        }
+                    }
+                    break;
+                }
+                else{
+                    add_keywords(AnalysisResults, K_OPERATOR, char_to_str(ch));
+                    ch = try_ch; // ç»§ç»­çŠ¶æ€1
+                }
+            }
+        case 1:
+            if (is_operator(ch)){// åˆ¤æ–­æ“ä½œç¬¦
+                add_keywords(AnalysisResults, K_OPERATOR, char_to_str(ch));
+                break;
+            }
+        case 2:
+            if (is_bracket(ch)){// å¤§æ‹¬å·ã€å°æ‹¬å·
+                add_keywords(AnalysisResults, K_BRACKET, char_to_str(ch));
+                break;
+            }
+        case 3:
+            if(is_blank(ch)) break;// ç©ºç™½ç¬¦
+        case 4:
+            if(ch == '#'){// è·³è¿‡é¢„å¤„ç†
+                while(rfile >> ch){
+                    if(is_blank(ch)) break;
+                }
+                break;
+            }
+        default: // åˆ¤æ–­å•è¯ç±»å‹
+            temp = temp + char_to_str(ch);
+            while(rfile >> try_ch){
+                if(try_ch == '\"'){
+                    temp = temp + char_to_str(try_ch);
+                    if(ch == '\"'){
+                        add_keywords(AnalysisResults, word_token(temp), temp);
+                        break;
+                    }
+                    else{
+                        cout << "ä¸åˆæ³•çš„æ ‡è¯†ç¬¦ï¼š" + temp << endl;
+                        exit(-1);
+                    }
+                }
+                else if (is_blank(try_ch)){
+                    if(ch != '\'' && ch != '\"'){
+                        add_keywords(AnalysisResults, word_token(temp), temp);
+                        break;
+                    }
+                    else temp = temp + char_to_str(try_ch);
+                }
+                else if(is_operator(try_ch)){
+                    if(ch != '\'' && ch != '\"'){
+                        add_keywords(AnalysisResults, word_token(temp), temp);
+                        add_keywords(AnalysisResults, K_OPERATOR, char_to_str(try_ch));
+                        break;
+                    }
+                    else temp = temp + char_to_str(try_ch);
+                }
+                else if(is_bracket(try_ch)){
+                    add_keywords(AnalysisResults, word_token(temp), temp);
+                    add_keywords(AnalysisResults, K_BRACKET, char_to_str(try_ch));
+                    break;
+                }
+                else temp = temp + char_to_str(try_ch);
+            }
+        }
+    }
+    rfile.close();
 }
 
-//Êä³ö´Ê·¨·ÖÎö½á¹û
-void print_lexical(vector<IDwords> &v)
-{
-	vector<IDwords>::iterator  it;
-	for(it = v.begin();it != v.end();it++)
-		cout<<it->id<<" "<<it->word<<endl;
+// è¾“å‡ºè¯æ³•åˆ†æç»“æœ
+void print_lexical(vector<IDwords> &v){
+    vector<IDwords>::iterator it;
+    for(it = v.begin(); it != v.end(); it++) cout << it->id << " " << it->word << endl;
 }
 
-//»ñÈ¡±äÁ¿ÉùÃ÷
-void add_var_table(vector<IDwords>::iterator &it)
-{
-	while(it->id == K_TYPE)
-	{
-		it++;
-		while(it->word != ";")
-		{
-	
-			if(it->id == K_IDENTIFIER)
-			{
-				Variable     tmp;
-				tmp.var = it->word;
-				string   tmp_var = it->word;
-				if((it+1)->word=="=")   //ÅĞ¶Ï±äÁ¿ÓĞÃ»ÓĞ³õÊ¼»¯
-				{
-					it = it+2;
-					tmp.value = it->word;
-					add_target_code(tmp_var,"=",tmp.value," "," "," ");
-				}
-				var_table.push_back(tmp);
-			}
-			it++;
-		}
-		it++;
-	}
+// è·å–å˜é‡å£°æ˜
+void add_var_table(vector<IDwords>::iterator &it){
+    while(it->id == K_TYPE){
+        it++;
+        while(it->word != ";"){
+            if(it->id == K_IDENTIFIER){
+                Variable tmp;
+                tmp.var = it->word;
+                string tmp_var = it->word;
+                if ((it + 1)->word == "="){// åˆ¤æ–­å˜é‡æœ‰æ²¡æœ‰åˆå§‹åŒ–
+                    it = it + 2;
+                    tmp.value = it->word;
+                    add_target_code(tmp_var, "=", tmp.value, " ", " ", " ");
+                }
+                var_table.push_back(tmp);
+            }
+            it++;
+        }
+        it++;
+    }
 }
 
-//±í´ïÊ½·ÖÎö
-void expression(vector<IDwords>::iterator &it)
-{
-	string dsf,op,dst,dsc;         
-	//±£´æ·Ç²Ù×÷·ûÕ»
-    stack<string>         word_stack;
-    //²Ù×÷·ûÕ»
-    stack<string>         oper_stack;
-	oper_stack.push("#");
-	while(it->word != ";")       //Óöµ½';'Ò»ÌõÓï¾ä½áÊø
-	{
-	
-		if(it->word == "(")
-			oper_stack.push(it->word);
-		else if(it->word == ")")
-		{
-
-			while(oper_stack.top() != "(")
-			{
-				op = oper_stack.top();
-			
-			    oper_stack.pop();
-		//	    oper_stack.push(it->word);
-			    dsc = word_stack.top();
+// è¡¨è¾¾å¼åˆ†æ
+void expression(vector<IDwords>::iterator &it){
+    string dsf, op, dst, dsc;
+    // ä¿å­˜éæ“ä½œç¬¦æ ˆ
+    stack<string> word_stack;
+    // æ“ä½œç¬¦æ ˆ
+    stack<string> oper_stack;
+    oper_stack.push("#");
+    while (it->word != ";"){// é‡åˆ°';'ä¸€æ¡è¯­å¥ç»“æŸ
+        if(it->word == "(") oper_stack.push(it->word);
+        else if(it->word == ")"){
+            while(oper_stack.top() != "("){
+                op = oper_stack.top();
+                oper_stack.pop();
+                //	    oper_stack.push(it->word);
+                dsc = word_stack.top();
                 word_stack.pop();
-			    dst = word_stack.top();
-			    word_stack.pop();
-			    vab = vab+1;
-				if(vab == 91)
-					vab = '0';
-			    dsf = "tmp" + char_to_str(vab);
+                dst = word_stack.top();
+                word_stack.pop();
+                vab = vab + 1;
+                if(vab == 91) vab = '0';
+                dsf = "tmp" + char_to_str(vab);
 
-				Variable     tmp;
-				tmp.var = dsf;
-				var_table.push_back(tmp);
+                Variable tmp;
+                tmp.var = dsf;
+                var_table.push_back(tmp);
 
-			    word_stack.push(dsf);
-                add_target_code(dsf,op,dst,dsc," "," ");
-			}
-			oper_stack.pop();
-	
-		}
-		else if(it->id != K_OPERATOR)
-			word_stack.push(it->word);
-		else if(oper_stack.top() == "(")
-		{
-			oper_stack.push(it->word);
-		}
-		else if(level(it->word) < level(oper_stack.top()))  //ÓÅÏÈ¼¶µÍ
-		{
-			op = oper_stack.top();
-			oper_stack.pop();
-			oper_stack.push(it->word);
-			dsc = word_stack.top();
+                word_stack.push(dsf);
+                add_target_code(dsf, op, dst, dsc, " ", " ");
+            }
+            oper_stack.pop();
+        }
+        else if(it->id != K_OPERATOR) word_stack.push(it->word);
+        else if(oper_stack.top() == "(") oper_stack.push(it->word);
+        else if (level(it->word) < level(oper_stack.top())){// ä¼˜å…ˆçº§ä½
+            op = oper_stack.top();
+            oper_stack.pop();
+            oper_stack.push(it->word);
+            dsc = word_stack.top();
             word_stack.pop();
-			dst = word_stack.top();
-			word_stack.pop();
-			vab = vab+1;
-			if(vab == 91)
-				vab = '0';
-			dsf = "tmp" + char_to_str(vab);
+            dst = word_stack.top();
+            word_stack.pop();
+            vab = vab + 1;
+            if (vab == 91) vab = '0';
+            dsf = "tmp" + char_to_str(vab);
 
-            Variable     tmp;
-			tmp.var = dsf;
-			var_table.push_back(tmp);
+            Variable tmp;
+            tmp.var = dsf;
+            var_table.push_back(tmp);
 
-			word_stack.push(dsf);
-            add_target_code(dsf,op,dst,dsc," "," ");
-		}
-		else   //ÓÅÏÈ¼¶¸ß
-			oper_stack.push(it->word);
-		it++;
-	}
-	//µ¯³öÊ£ÏÂµÄ
-	while(oper_stack.top() != "#")
-	{
-		op = oper_stack.top();
+            word_stack.push(dsf);
+            add_target_code(dsf, op, dst, dsc, " ", " ");
+        }
+        else oper_stack.push(it->word);// ä¼˜å…ˆçº§é«˜
+        it++;
+    }
+    // å¼¹å‡ºå‰©ä¸‹çš„
+    while(oper_stack.top() != "#"){
+        op = oper_stack.top();
         oper_stack.pop();
-		dsc = word_stack.top();
+        dsc = word_stack.top();
         word_stack.pop();
-		dst = word_stack.top();
-		word_stack.pop();
-	
-		if(op=="=")//¸³ÖµÔËËã
-		{
-			add_target_code(dst,op,dsc," "," "," ");
-		}
-		else
-		{
-            vab = vab+1;
-			if(vab == 91)
-				vab = '0';
-			dsf = "tmp" + char_to_str(vab);
+        dst = word_stack.top();
+        word_stack.pop();
 
-            Variable     tmp;
-			tmp.var = dsf;
-			var_table.push_back(tmp);
+        if (op == "=") add_target_code(dst, op, dsc, " ", " ", " ");// èµ‹å€¼è¿ç®—
+        else{
+            vab = vab + 1;
+            if(vab == 91) vab = '0';
+            dsf = "tmp" + char_to_str(vab);
 
-			word_stack.push(dsf);
-            add_target_code(dsf,op,dst,dsc," "," ");
-		}
-	}
+            Variable tmp;
+            tmp.var = dsf;
+            var_table.push_back(tmp);
+
+            word_stack.push(dsf);
+            add_target_code(dsf, op, dst, dsc, " ", " ");
+        }
+    }
 }
 
-//·ÖÎöprintfÊä³ö
-void printf_analysis(vector<IDwords>::iterator &it)
-{
-	int j,i=1;
-	it = it+2;
-	string str = it->word; //»ñÈ¡Êä³öÄÚÈİ
-	string strvar;         //»ñÈ¡Êä³ö±äÁ¿
+// åˆ†æprintfè¾“å‡º
+void printf_analysis(vector<IDwords>::iterator &it){
+    int j, i = 1;
+    it = it + 2;
+    string str = it->word; // è·å–è¾“å‡ºå†…å®¹
+    string strvar;		   // è·å–è¾“å‡ºå˜é‡
 
-	Variable       tmp;
-	//·ÖÎöÊä³öÄÚÈİ¼°¸ñÊ½
-	for(j=1;j<str.size()-1;)
-	{
-		if(str[j]=='%')
-        {
-			if(i != j)
-			{
-				vab = vab + 1;
-				if(vab == 91)
-					vab = '0';
-			    add_target_code("\'"+str.substr(i,j-i)+"$\'","p"," "," ","tmp"+char_to_str(vab)," ");
-			    tmp.var = "tmp"+char_to_str(vab);
-			    tmp.value = "\'"+str.substr(i,j-i)+"$\'";
-			    var_table.push_back(tmp);
+    Variable tmp;
+    // åˆ†æè¾“å‡ºå†…å®¹åŠæ ¼å¼
+    for(j = 1; j < str.size() - 1;){
+        if(str[j] == '%'){
+            if (i != j){
+                vab = vab + 1;
+                if (vab == 91)
+                    vab = '0';
+                add_target_code("\'" + str.substr(i, j - i) + "$\'", "p", " ", " ", "tmp" + char_to_str(vab), " ");
+                tmp.var = "tmp" + char_to_str(vab);
+                tmp.value = "\'" + str.substr(i, j - i) + "$\'";
+                var_table.push_back(tmp);
             }
 
-			i = j+2;
-			it = it+2;  //»ñÈ¡¶ÔÓ¦±äÁ¿
-			strvar = it->word;
-            add_target_code(strvar,"p"," "," ",str.substr(j,2)," ");
-			j = i;
-			continue;
-		}
-		j++;
-	}
-	if(i!=j)
-	{
-		vab = vab+1;
-		if(vab == 91)
-			vab = '0';
-		add_target_code("\'"+str.substr(i,j-i)+"$\'","p"," "," ","tmp"+char_to_str(vab)," ");
-		tmp.var = "tmp"+char_to_str(vab);
-		tmp.value = "\'"+str.substr(i,j-i)+"$\'";
-		var_table.push_back(tmp);
-	}
-	it = it+2; //ÂÔ¹ı¡°)}¡±
+            i = j + 2;
+            it = it + 2; // è·å–å¯¹åº”å˜é‡
+            strvar = it->word;
+            add_target_code(strvar, "p", " ", " ", str.substr(j, 2), " ");
+            j = i;
+            continue;
+        }
+        j++;
+    }
+    if(i != j){
+        vab = vab + 1;
+        if (vab == 91) vab = '0';
+        add_target_code("\'" + str.substr(i, j - i) + "$\'", "p", " ", " ", "tmp" + char_to_str(vab), " ");
+        tmp.var = "tmp" + char_to_str(vab);
+        tmp.value = "\'" + str.substr(i, j - i) + "$\'";
+        var_table.push_back(tmp);
+    }
+    it = it + 2; // ç•¥è¿‡â€œ)}â€
 }
 
-//·ÖÎöifÓï¾ä
-void if_analysis(vector<IDwords>::iterator &it)
-{
-	string  op,mark,dst,dsc;
-	it++;
-	if(it->word != "(")
-	{
-		cout<<"´íÎóµÄifÓï¾ä£ºÈ±ÉÙ'('"<<endl;
-		exit(-1);
-	}
-	it++;
-	dst = it->word;
-	it++;
-	mark = it->word;
-	it++;
-	dsc = it->word;
-	op = "if";
+// åˆ†æifè¯­å¥
+void if_analysis(vector<IDwords>::iterator &it){
+    string op, mark, dst, dsc;
+    it++;
+    if(it->word != "("){
+        cout << "é”™è¯¯çš„ifè¯­å¥ï¼šç¼ºå°‘'('" << endl;
+        exit(-1);
+    }
+    it++;
+    dst = it->word;
+    it++;
+    mark = it->word;
+    it++;
+    dsc = it->word;
+    op = "if";
 
-	add_target_code(" ",op,dst,dsc,mark,"step"+char_to_str(lab+1));
-	it++;
-	if(it->word != ")")
-	{
-		cout<<"´íÎóµÄifÌõ¼şÓï¾ä£ºÈ±ÉÙ')'"<<endl;
-		exit(-1);
-	}
-	it++; //ÂÔ¹ı¡®{¡¯
-	it++;
-    
-	//·ÖÎöelse
-	vector<IDwords>::iterator   it2 = it;
-    while(it2->word != "}")
-	{
-		it2++;
-	}
-	it2++;
-	//ÅĞ¶ÏÓĞÃ»ÓĞelse
-	if(it2->word == "else")
-	{
-		it2++; //ÂÔ¹ı¡®{¡¯
-        while(it2->word != "}")
-		{
-			expression(it2);
-			it2++;
-		}
-	}//else·ÖÎöÍê³É
-	else
-		it2--;
-	lab = lab + 2;
-    add_target_code(" ","jmp"," "," "," ","step"+char_to_str(lab));
+    add_target_code(" ", op, dst, dsc, mark, "step" + char_to_str(lab + 1));
+    it++;
+    if(it->word != ")"){
+        cout << "é”™è¯¯çš„ifæ¡ä»¶è¯­å¥ï¼šç¼ºå°‘')'" << endl;
+        exit(-1);
+    }
+    it++; // ç•¥è¿‡â€˜{â€™
+    it++;
 
-	add_target_code(" ","pstep"," "," "," ","step"+char_to_str(lab-1));
-	
-	while(it->word != "}")
-	{
-		expression(it); //±í´ïÊ½·ÖÎö
-		it++;
-	}
-    add_target_code(" ","jmp"," "," "," ","step"+char_to_str(lab));
-    add_target_code(" ","pstep"," "," "," ","step"+char_to_str(lab));
+    // åˆ†æelse
+    vector<IDwords>::iterator it2 = it;
+    while(it2->word != "}") it2++;
+    it2++;
+    // åˆ¤æ–­æœ‰æ²¡æœ‰else
+    if(it2->word == "else"){
+        it2++; // ç•¥è¿‡â€˜{â€™
+        while(it2->word != "}"){
+            expression(it2);
+            it2++;
+        }
+    }// elseåˆ†æå®Œæˆ
+    else it2--;
+    lab = lab + 2;
+    add_target_code(" ", "jmp", " ", " ", " ", "step" + char_to_str(lab));
+
+    add_target_code(" ", "pstep", " ", " ", " ", "step" + char_to_str(lab - 1));
+
+    while(it->word != "}"){
+        expression(it); // è¡¨è¾¾å¼åˆ†æ
+        it++;
+    }
+    add_target_code(" ", "jmp", " ", " ", " ", "step" + char_to_str(lab));
+    add_target_code(" ", "pstep", " ", " ", " ", "step" + char_to_str(lab));
 
 	it = it2;
 }
 
-//Óï·¨·ÖÎö
-void syntax_analysis(vector<IDwords> &AnalysisResults)
-{
-	vector<IDwords>::iterator  it=AnalysisResults.begin();
-    if(it->word != "main")
-	{
-		cout<<"È±ÉÙmain"<<endl;
-		exit(-1);
-	}
-	it = it+3; //Ìø¹ı¡°£¨£©¡±
-	if(it->word != "{")
-	{
-		cout<<"mainº¯ÊıÈ±ÉÙ'{'"<<endl;
-		exit(-1);
-	}
-	it++;
-	//»ñÈ¡±äÁ¿ÉùÃ÷
+// è¯­æ³•åˆ†æ
+void syntax_analysis(vector<IDwords> &AnalysisResults){
+    vector<IDwords>::iterator it = AnalysisResults.begin();
+    if(it->word != "main"){
+        cout << "ç¼ºå°‘main" << endl;
+        exit(-1);
+    }
+    it = it + 3; // è·³è¿‡â€œï¼ˆï¼‰â€
+    if(it->word != "{"){
+        cout << "mainå‡½æ•°ç¼ºå°‘'{'" << endl;
+        exit(-1);
+    }
+    it++;
+    // è·å–å˜é‡å£°æ˜
     add_var_table(it);
-    //»ñÈ¡´úÂë¶ÎµÄ²Ù×÷
-	while(it != AnalysisResults.end())
-	{
-		//Óöµ½printf
-		if(it->word == "printf")
-		{
-			printf_analysis(it);
-		}
-		// if Óï¾ä
-		else if(it->word == "if")
-		{
-			if_analysis(it);
-		}
-		else if(it->word == "}")
-			break;
-		//±í´ïÊ½·ÖÎö
-		else
-		{
-			expression(it); //±í´ïÊ½·ÖÎö
-		}
-		it++;
-	}
+    // è·å–ä»£ç æ®µçš„æ“ä½œ
+    while(it != AnalysisResults.end()){
+        // é‡åˆ°printf
+        if(it->word == "printf") printf_analysis(it);
+        // if è¯­å¥
+        else if(it->word == "if") if_analysis(it);
+        else if(it->word == "}") break;
+        // è¡¨è¾¾å¼åˆ†æ
+        else expression(it); // è¡¨è¾¾å¼åˆ†æ
+        it++;
+    }
 }
 
-//Êä³öÓï·¨·ÖÎö½á¹û
-void print_syntax()
-{
-	vector<Variable>::iterator  it;
-	cout<<"±äÁ¿ÉùÃ÷¼°³õÊ¼»¯"<<endl;
-	for(it = var_table.begin();it != var_table.end();it++)
-	{
-		cout<<it->var<<"   "<<it->value<<endl;
-	}
+// è¾“å‡ºè¯­æ³•åˆ†æç»“æœ
+void print_syntax(){
+    vector<Variable>::iterator it;
+    cout << "å˜é‡å£°æ˜åŠåˆå§‹åŒ–" << endl;
+    for(it = var_table.begin(); it != var_table.end(); it++) cout << it->var << "   " << it->value << endl;
 
-	vector<Target>::iterator it2;
-	cout<<"ÖĞ¼ä´úÂë"<<endl;
-	for(it2 = target_code.begin();it2 != target_code.end();it2++)
-	{
-		cout<<it2->dsf<<"  "<<it2->op<<"  "<<it2->dst<<"  "<<it2->dsc<<"  "<<it2->mark<<"  "<<it2->step<<endl;
-	}
+    vector<Target>::iterator it2;
+    cout << "ä¸­é—´ä»£ç " << endl;
+    for(it2 = target_code.begin(); it2 != target_code.end(); it2++) cout << it2->dsf << "  " << it2->op << "  " << it2->dst << "  " << it2->dsc << "  " << it2->mark << "  " << it2->step << endl;
 }
 
-//¼Ó¼õ·¨×ª»»
-void addsub_asm(ofstream &out,string dsf,string op,string dst,string dsc)
-{
-	out<<"    mov BL,"<<dst<<endl;
-	if(op == "+")
-		out<<"    add BL,"<<dsc<<endl;
-	else
-		out<<"    sub BL,"<<dsc<<endl;
-	out<<"    mov "<<dsf<<",BL"<<endl;
+// åŠ å‡æ³•è½¬æ¢
+void addsub_asm(ofstream &out, string dsf, string op, string dst, string dsc){
+    out << "    mov BL," << dst << endl;
+    if(op == "+") out << "    add BL," << dsc << endl;
+    else out << "    sub BL," << dsc << endl;
+    out << "    mov " << dsf << ",BL" << endl;
 }
 
-//³Ë·¨
-void mul_asm(ofstream &out,string dsf,string dst,string dsc)
-{
-	out<<"    mov AL,"<<dst<<endl;
-	out<<"    mov BH,"<<dsc<<endl;
-	out<<"    mul BH"<<endl;
-	out<<"    mov BL,1"<<endl;
-	out<<"    div BL"<<endl;
-	out<<"    mov "<<dsf<<",AL"<<endl;
+// ä¹˜æ³•
+void mul_asm(ofstream &out, string dsf, string dst, string dsc){
+    out << "    mov AL," << dst << endl;
+    out << "    mov BH," << dsc << endl;
+    out << "    mul BH" << endl;
+    out << "    mov BL,1" << endl;
+    out << "    div BL" << endl;
+    out << "    mov " << dsf << ",AL" << endl;
 }
 
-//³ı·¨
-void div_asm(ofstream &out,string dsf,string dst,string dsc)
-{
-	out<<"    mov AL,"<<dst<<endl;
-	out<<"    CBW"<<endl;
-	out<<"    mov BL,"<<dsc<<endl;
-	out<<"    div BL"<<endl;
-	out<<"    mov "<<dsf<<",AL"<<endl;
+// é™¤æ³•
+void div_asm(ofstream &out, string dsf, string dst, string dsc){
+    out << "    mov AL," << dst << endl;
+    out << "    CBW" << endl;
+    out << "    mov BL," << dsc << endl;
+    out << "    div BL" << endl;
+    out << "    mov " << dsf << ",AL" << endl;
 }
 
-//¸³ÖµÔËËã
-void sign_asm(ofstream &out,string dsf,string dst)
-{
-	out<<"    mov BL,"<<dst<<endl;
-	out<<"    mov "<<dsf<<",BL"<<endl;
+// èµ‹å€¼è¿ç®—
+void sign_asm(ofstream &out, string dsf, string dst){
+    out << "    mov BL," << dst << endl;
+    out << "    mov " << dsf << ",BL" << endl;
 }
 
-//Êä³ö×ª»»
-void print_asm(ofstream &out,string dsf,string mark)
-{
-	//ÒÔ×Ö·û¸ñÊ½Êä³ö
-	if(mark=="%c")
-	{
-		out<<"    mov DL,"<<dsf<<endl;
-		out<<"    mov AH,02H"<<endl;
-		out<<"    int 21H"<<endl;
-	}
-	//ÒÔÕûÊı¸ñÊ½Êä³ö
-	else if(mark=="%d")
-	{
-		out<<"    mov AL,"<<dsf<<endl;
-		out<<"    CBW"<<endl;
-		out<<"    mov BL,10"<<endl;
-		out<<"    DIV BL"<<endl;
-		out<<"    mov BH,AH"<<endl;
-		out<<"    add BH,30H"<<endl;
-		out<<"    add AL,30H"<<endl;
-		out<<"    CMP AL,48"<<endl;
-		//È·¶¨Ê®Î»ÊÇ·ñÊÇ0
-		lab = lab + 2;
-		string step2 = "step" + char_to_str(lab);
-		out<<"    JE "<<step2<<endl;
-        string step1 = "step" + char_to_str(lab-1);
-		out<<"  "<<step1<<":"<<endl;
-		out<<"    mov DL,AL"<<endl;
-		out<<"    mov AH,2"<<endl;
-		out<<"    int 21H"<<endl;
+// è¾“å‡ºè½¬æ¢
+void print_asm(ofstream &out, string dsf, string mark){
+    // ä»¥å­—ç¬¦æ ¼å¼è¾“å‡º
+    if(mark == "%c"){
+        out << "    mov DL," << dsf << endl;
+        out << "    mov AH,02H" << endl;
+        out << "    int 21H" << endl;
+    }
+    // ä»¥æ•´æ•°æ ¼å¼è¾“å‡º
+    else if(mark == "%d"){
+        out << "    mov AL," << dsf << endl;
+        out << "    CBW" << endl;
+        out << "    mov BL,10" << endl;
+        out << "    DIV BL" << endl;
+        out << "    mov BH,AH" << endl;
+        out << "    add BH,30H" << endl;
+        out << "    add AL,30H" << endl;
+        out << "    CMP AL,48" << endl;
+        // ç¡®å®šåä½æ˜¯å¦æ˜¯0
+        lab = lab + 2;
+        string step2 = "step" + char_to_str(lab);
+        out << "    JE " << step2 << endl;
+        string step1 = "step" + char_to_str(lab - 1);
+        out << "  " << step1 << ":" << endl;
+        out << "    mov DL,AL" << endl;
+        out << "    mov AH,2" << endl;
+        out << "    int 21H" << endl;
 
-		//Êä³ö¸öÎ»
-		out<<"  "<<step2<<":"<<endl;
-		out<<"    mov DL,BH"<<endl;
-		out<<"    mov AH,2"<<endl;
-		out<<"    int 21H"<<endl;
-	}
-	//×Ö·û´®Êä³ö
-	else
-	{
-		out<<"    LEA DX,"<<mark<<endl;
-		out<<"    mov AH,09"<<endl;
-		out<<"    int 21H"<<endl;
-	}
+        // è¾“å‡ºä¸ªä½
+        out << "  " << step2 << ":" << endl;
+        out << "    mov DL,BH" << endl;
+        out << "    mov AH,2" << endl;
+        out << "    int 21H" << endl;
+    }
+    // å­—ç¬¦ä¸²è¾“å‡º
+    else{
+        out << "    LEA DX," << mark << endl;
+        out << "    mov AH,09" << endl;
+        out << "    int 21H" << endl;
+    }
 }
 
-//ifÓï¾ä×ª»»
-void if_asm(ofstream &out,string dst,string dsc,string mark,string step)
-{
-	out<<"    mov AL,"<<dst<<endl;
-	out<<"    CMP AL,"<<dsc<<endl;
-	if(mark == ">")
-		out<<"    JG "<<step<<endl;
-	else if(mark == "<")
-		out<<"    JL "<<step<<endl;
-	else
-	{
-		cout<<"Ôİ²»Ö§³ÖÆäËûÌõ¼şÅĞ¶Ï"<<endl;
-		exit(-1);
-	}
+// ifè¯­å¥è½¬æ¢
+void if_asm(ofstream &out, string dst, string dsc, string mark, string step){
+    out << "    mov AL," << dst << endl;
+    out << "    CMP AL," << dsc << endl;
+    if(mark == ">") out << "    JG " << step << endl;
+    else if(mark == "<") out << "    JL " << step << endl;
+    else{
+        cout << "æš‚ä¸æ”¯æŒå…¶ä»–æ¡ä»¶åˆ¤æ–­" << endl;
+        exit(-1);
+    }
 }
 
+// ç”Ÿæˆæ±‡ç¼–æ–‡ä»¶
+void create_asm(string file){
+    // å˜é‡å£°æ˜
+    ofstream wfile(file.c_str());
+    if(!wfile.is_open()) cout << "æ— æ³•åˆ›å»ºæ±‡ç¼–æ–‡ä»¶" << endl;
 
-//Éú³É»ã±àÎÄ¼ş
-void create_asm(string file)
-{
-	//±äÁ¿ÉùÃ÷
-	ofstream   wfile(file.c_str());
-	if(!wfile.is_open())
-		cout<<"ÎŞ·¨´´½¨»ã±àÎÄ¼ş"<<endl;
+    vector<Variable>::iterator it_var;
 
-	vector<Variable>::iterator  it_var;
-	
-	wfile<<"ASSUME CS:codesg,DS:datasg"<<endl;
-	//Êı¾İ¶Î
-	wfile<<"datasg segment"<<endl;
-	for(it_var=var_table.begin();it_var!=var_table.end();it_var++)
-	{
-		wfile<<"    "<<it_var->var<<" DB ";
-		if(it_var->value != "")
-			wfile<<it_var->value<<endl;
-		else
-			wfile<<"\'?\'"<<endl;
-	}
-	wfile<<"datasg ends"<<endl;
-	//´úÂë¶Î
-	wfile<<"codesg segment"<<endl;
-	wfile<<"  start:"<<endl;
-	wfile<<"    mov AX,datasg"<<endl;
-	wfile<<"    mov DS,AX"<<endl;
+    wfile << "ASSUME CS:codesg,DS:datasg" << endl;
+    // æ•°æ®æ®µ
+    wfile << "datasg segment" << endl;
+    for(it_var = var_table.begin(); it_var != var_table.end(); it_var++){
+        wfile << "    " << it_var->var << " DB ";
+        if(it_var->value != "") wfile << it_var->value << endl;
+        else wfile << "\'?\'" << endl;
+    }
+    wfile << "datasg ends" << endl;
+    // ä»£ç æ®µ
+    wfile << "codesg segment" << endl;
+    wfile << "  start:" << endl;
+    wfile << "    mov AX,datasg" << endl;
+    wfile << "    mov DS,AX" << endl;
 
-	vector<Target>::iterator     it;
-	Target        tmp;
-    for(it = target_code.begin();it != target_code.end();it++)
-	{
-		//¼Ó¼õ·¨×ª»¯
-		if(it->op == "+" || it->op=="-")
-			addsub_asm(wfile,it->dsf,it->op,it->dst,it->dsc);
-		//³Ë·¨×ª»»
-		else if(it->op == "*")
-			mul_asm(wfile,it->dsf,it->dst,it->dsc);
-		//³ı·¨×ª»»
-		else if(it->op == "/")
-			div_asm(wfile,it->dsf,it->dst,it->dsc);
-		//¸³ÖµÔËËã
-		else if(it->op == "=")
-			sign_asm(wfile,it->dsf,it->dst);
-		//Êä³ö²Ù×÷
-		else if(it->op == "p")
-			print_asm(wfile,it->dsf,it->mark);
-		//ifÓï·¨·ÖÎö
-		else if(it->op == "if")
-		{
-			if_asm(wfile,it->dst,it->dsc,it->mark,it->step);
-		}
-		else if(it->op == "else")
-		{
-			cout<<"else Ã»ÓĞÕÒµ½Æ¥ÅäµÄ if"<<endl;
-			exit(-1);
-		}
-		//Ìø×ªÓï¾ä
-		else if(it->op == "jmp")
-		{
-			wfile<<"    JMP "<<it->step<<endl;
-		}
-		//Ìø×ªÓï¾ä¶Î±êÊ¶
-		else if(it->op == "pstep")
-		{
-			wfile<<"  "<<it->step<<":"<<endl;
-		}
-		//ÆäËû
-		else
-		{
-			cout<<"±àÒëÆ÷Ôİ²»Ö§³Ö¸ÃÓï·¨²Ù×÷"<<endl;
-			exit(-1);
-		}
-	}
+    vector<Target>::iterator it;
+    Target tmp;
+    for(it = target_code.begin(); it != target_code.end(); it++){
+        // åŠ å‡æ³•è½¬åŒ–
+        if(it->op == "+" || it->op == "-") addsub_asm(wfile, it->dsf, it->op, it->dst, it->dsc);
+        // ä¹˜æ³•è½¬æ¢
+        else if(it->op == "*") mul_asm(wfile, it->dsf, it->dst, it->dsc);
+        // é™¤æ³•è½¬æ¢
+        else if(it->op == "/") div_asm(wfile, it->dsf, it->dst, it->dsc);
+        // èµ‹å€¼è¿ç®—
+        else if(it->op == "=") sign_asm(wfile, it->dsf, it->dst);
+        // è¾“å‡ºæ“ä½œ
+        else if(it->op == "p") print_asm(wfile, it->dsf, it->mark);
+        // ifè¯­æ³•åˆ†æ
+        else if(it->op == "if") if_asm(wfile, it->dst, it->dsc, it->mark, it->step);
+        else if(it->op == "else"){
+            cout << "else æ²¡æœ‰æ‰¾åˆ°åŒ¹é…çš„ if" << endl;
+            exit(-1);
+        }
+        // è·³è½¬è¯­å¥
+        else if(it->op == "jmp") wfile << "    JMP " << it->step << endl;
+        // è·³è½¬è¯­å¥æ®µæ ‡è¯†
+        else if(it->op == "pstep") wfile << "  " << it->step << ":" << endl;
+        // å…¶ä»–
+        else{
+            cout << "ç¼–è¯‘å™¨æš‚ä¸æ”¯æŒè¯¥è¯­æ³•æ“ä½œ" << endl;
+            exit(-1);
+        }
+    }
 
-	//´úÂë¶Î½áÊø
-	wfile<<"    mov ax,4C00H"<<endl;
-	wfile<<"    int 21H"<<endl;
-	wfile<<"codesg ends"<<endl;
-	wfile<<"  end start"<<endl;
+    // ä»£ç æ®µç»“æŸ
+    wfile << "    mov ax,4C00H" << endl;
+    wfile << "    int 21H" << endl;
+    wfile << "codesg ends" << endl;
+    wfile << "  end start" << endl;
 
-	wfile.close();
+    wfile.close();
 }
 
+int main(int argc, char *argv[]){
+    vector<IDwords> AnalysisResults;
 
-int main(int argc,char* argv[])
-{
-	vector<IDwords>  AnalysisResults;
+    string source;
 
-	string source;
+    // ç¼ºçœæ—¶ç»™ä»¥æç¤º
+    if(argc == 1){
+        cout << "åœ¨æºæ–‡ä»¶ç›®å½•ä¸‹ç”Ÿæˆ .asm æ±‡ç¼–æ–‡ä»¶" << "\n";
+        cout << "è¯·è¾“å…¥æºæ–‡ä»¶ï¼š";
+        cin >> source;
+        // è¯æ³•åˆ†æ
+        lexical_analysis(source, AnalysisResults);
+        // è¯­æ³•åˆ†æ
+        syntax_analysis(AnalysisResults);
+        // ç”Ÿæˆæ±‡ç¼–æ–‡ä»¶
+        create_asm(asmfile(source));
+        cout << "ä½¿ç”¨ç»“æŸ" << "\n";
+    }
+    else if(argc == 2){
+        // é»˜è®¤ç”Ÿæˆæ±‡ç¼–æ–‡ä»¶ï¼šæºæ–‡ä»¶å.asm
+        // è¯æ³•åˆ†æ
+        lexical_analysis(argv[1], AnalysisResults);
+        // è¯­æ³•åˆ†æ
+        syntax_analysis(AnalysisResults);
+        // ç”Ÿæˆæ±‡ç¼–æ–‡ä»¶
+        create_asm(asmfile(argv[1]));
+    }
+    else if(argc == 3){
+        // è¯æ³•åˆ†æ
+        lexical_analysis(argv[1], AnalysisResults);
+        // è¯­æ³•åˆ†æ
+        syntax_analysis(AnalysisResults);
+        // ç”Ÿæˆæ±‡ç¼–æ–‡ä»¶
+        create_asm(asmfile(argv[2]));
+    }
+    else cout << "æ­£ç¡®ä½¿ç”¨æ ¼å¼ï¼šcompile.exe [æºæ–‡ä»¶] [æ±‡ç¼–æ–‡ä»¶]" << "\n";
 
-	//È±Ê¡Ê±¸øÒÔÌáÊ¾
-	if(argc == 1)
-	{
-		cout<<"*****************************************************"<<endl;
-		cout<<"\nÔÚÔ´ÎÄ¼şÄ¿Â¼ÏÂÉú³É .asm »ã±àÎÄ¼ş\n"<<endl;
-		cout<<"*****************************************************"<<endl;
-		cout<<"\nÇëÊäÈëÔ´ÎÄ¼ş£º";
-		cin>>source;
-        //´Ê·¨·ÖÎö
-	    lexical_analysis(source,AnalysisResults);
-		//Óï·¨·ÖÎö
-	    syntax_analysis(AnalysisResults);
-		//Éú³É»ã±àÎÄ¼ş
-	    create_asm(asmfile(source));
-		cout<<"\nÊ¹ÓÃ½áÊø"<<endl;
-	}
-	else if(argc == 2)
-	{
-		//Ä¬ÈÏÉú³É»ã±àÎÄ¼ş£ºÔ´ÎÄ¼şÃû.asm
-        //´Ê·¨·ÖÎö
-	    lexical_analysis(argv[1],AnalysisResults);
-		//Óï·¨·ÖÎö
-	    syntax_analysis(AnalysisResults);
-		//Éú³É»ã±àÎÄ¼ş
-	    create_asm(asmfile(argv[1]));
-	}
-	else if(argc == 3)
-	{
-		//´Ê·¨·ÖÎö
-	    lexical_analysis(argv[1],AnalysisResults);
-		//Óï·¨·ÖÎö
-	    syntax_analysis(AnalysisResults);
-		//Éú³É»ã±àÎÄ¼ş
-	    create_asm(asmfile(argv[2]));
-	}
-	else
-	{
-		cout<<"ÕıÈ·Ê¹ÓÃ¸ñÊ½£ºcompile.exe [Ô´ÎÄ¼ş] [»ã±àÎÄ¼ş]"<<endl;
-	}
-
-	//Êä³ö·ÖÎö
- //   print_lexical(AnalysisResults);
-	//Êä³öÓï·¨·ÖÎö½á¹û
-//	print_syntax();
-	return 0;
+    return 0;
 }
-
-
-
-
