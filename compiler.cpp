@@ -7,7 +7,7 @@
 #include <stdlib.h>
 using namespace std;
 
-#define K_DIGIT 3	       // 整数
+#define K_DIGIT 3	   // 整数
 #define K_CHAR 4	   // 字符
 #define K_STRING 5	   // 字符串
 #define K_TYPE 6	   // 数据类型
@@ -121,17 +121,15 @@ string asmfile(string source){
         cout << "源文件名不能为空" << "\n";
         exit(-1);
     }
-    string temp = "";
-    int i, j;
-    j = source.size();
-    for (i = j - 1; i >= 0; i--){
-        if(source[i] == '.'){
-            j = i;
-            break;
-        }
+    string res = "";
+    int len;
+    len = source.size();
+    for(int i = len - 1; i >= 0; i--) if(source[i] == '.'){
+        len = i;
+        break;
     }
-    temp = source.substr(0, j) + ".asm";
-    return temp;
+    res = source.substr(0, len) + ".asm";
+    return res;
 }
 
 // 运算复优先级
@@ -167,7 +165,7 @@ void add_keywords(vector<IDwords> &v, int id, string word){
 void lexical_analysis(string source, vector<IDwords> &AnalysisResults){
     char ch;
     ifstream rfile(source.c_str());
-    if (!rfile.is_open()){
+    if(!rfile.is_open()){
         cout << "无法打开源文件" << endl;
         exit(-1);
     }
@@ -180,7 +178,7 @@ void lexical_analysis(string source, vector<IDwords> &AnalysisResults){
 
         switch(state){
         case 0:
-            if(ch == '/'){// 可能是注释
+            if(ch == '/'){ // 可能是注释
                 rfile >> try_ch;
                 if(try_ch == '/'){
                     while(rfile >> try_ch){
@@ -203,19 +201,19 @@ void lexical_analysis(string source, vector<IDwords> &AnalysisResults){
                 }
             }
         case 1:
-            if (is_operator(ch)){// 判断操作符
+            if(is_operator(ch)){ // 判断操作符
                 add_keywords(AnalysisResults, K_OPERATOR, char_to_str(ch));
                 break;
             }
         case 2:
-            if (is_bracket(ch)){// 大括号、小括号
+            if(is_bracket(ch)){ // 大括号、小括号
                 add_keywords(AnalysisResults, K_BRACKET, char_to_str(ch));
                 break;
             }
         case 3:
-            if(is_blank(ch)) break;// 空白符
+            if(is_blank(ch)) break; // 空白符
         case 4:
-            if(ch == '#'){// 跳过预处理
+            if(ch == '#'){ // 跳过预处理
                 while(rfile >> ch){
                     if(is_blank(ch)) break;
                 }
@@ -235,7 +233,7 @@ void lexical_analysis(string source, vector<IDwords> &AnalysisResults){
                         exit(-1);
                     }
                 }
-                else if (is_blank(try_ch)){
+                else if(is_blank(try_ch)){
                     if(ch != '\'' && ch != '\"'){
                         add_keywords(AnalysisResults, word_token(temp), temp);
                         break;
@@ -382,10 +380,9 @@ void printf_analysis(vector<IDwords>::iterator &it){
     // 分析输出内容及格式
     for(j = 1; j < str.size() - 1;){
         if(str[j] == '%'){
-            if (i != j){
+            if(i != j){
                 vab = vab + 1;
-                if (vab == 91)
-                    vab = '0';
+                if(vab == 91) vab = '0';
                 add_target_code("\'" + str.substr(i, j - i) + "$\'", "p", " ", " ", "tmp" + char_to_str(vab), " ");
                 tmp.var = "tmp" + char_to_str(vab);
                 tmp.value = "\'" + str.substr(i, j - i) + "$\'";
@@ -403,7 +400,7 @@ void printf_analysis(vector<IDwords>::iterator &it){
     }
     if(i != j){
         vab = vab + 1;
-        if (vab == 91) vab = '0';
+        if(vab == 91) vab = '0';
         add_target_code("\'" + str.substr(i, j - i) + "$\'", "p", " ", " ", "tmp" + char_to_str(vab), " ");
         tmp.var = "tmp" + char_to_str(vab);
         tmp.value = "\'" + str.substr(i, j - i) + "$\'";
@@ -472,7 +469,7 @@ void syntax_analysis(vector<IDwords> &AnalysisResults){
         cout << "缺少main" << endl;
         exit(-1);
     }
-    it = it + 3; // 跳过“（）”
+    it = it + 3; // 跳过“()”
     if(it->word != "{"){
         cout << "main函数缺少'{'" << endl;
         exit(-1);
@@ -670,6 +667,9 @@ int main(int argc, char *argv[]){
         // 生成汇编文件
         create_asm(asmfile(source));
         cout << "使用结束" << "\n";
+
+        // print_lexical(AnalysisResults);
+        // print_syntax();
     }
     else if(argc == 2){
         // 默认生成汇编文件：源文件名.asm
